@@ -6,7 +6,7 @@
     "developer": "claude-sonnet-5-5",
     "tester": "claude-sonnet-5-5",
     "judge": "claude-haiku-5-5",
-    "reviewer": "claude-opus-5-5"
+    "reviewer": "claude-sonnet-5-5"
   },
   "max_turns": {
     "analyst": 40,
