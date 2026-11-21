@@ -24,7 +24,7 @@ ENV_PASSTHROUGH = ["PATH", "HOME", "LANG", "LC_ALL", "TMPDIR", "VIRTUAL_ENV", "p
                    # model credential: needed by the CLI itself, scrubbed from Bash subprocesses below
                    "CLAUDE_CODE_OAUTH_TOKEN", "ANTHROPIC_API_KEY"]
 PROVIDER_ERRORS = ("rate limit", "rate_limit", "usage limit", "overloaded", "529", "429",
-                   "authentication", "invalid api key", "401", "credit balance", "quota")
+                   "authentication", "invalid api key", "401", "credit balance", "quota", "hit your", "-hour limit")
 
 
 def _settings_file(work: Path) -> Path:
@@ -145,7 +145,8 @@ def run_agent(role: str, prompt: str, ws: Path, stage_dir: Path, transcript: Pat
             result.update(ok=False, error_kind="sandbox",
                           error="the Bash sandbox (bubblewrap + socat) failed to start, so no command could run")
         elif final is None or final.get("is_error") or proc.returncode != 0:
-            blob = json.dumps(final or {}) + err[-2000:]
+            # the CLI's own message first (e.g. "You've hit your 5-hour limit · resets 11:20am (UTC)"), then raw detail
+            blob = ((final or {}).get("result") or "").strip() + " | " + json.dumps(final or {}) + err[-2000:]
             kind = "max_turns" if (final or {}).get("subtype") == "error_max_turns" else _classify_error(blob)
             result.update(ok=False, error_kind=kind, error=blob[-1500:])
         else:
