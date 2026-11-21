@@ -1574,3 +1574,12 @@ class testStripTags(TestCase):
             strip_tags('foo &lt; &amp; &lt; bar'),
             'foo &lt; &amp; &lt; bar'
         )
+
+
+class TestNoTocClass(TestCase):
+
+    def test_no_toc_heading_removed_from_rendered_toc(self):
+        md = Markdown(extensions=['toc', 'attr_list'])
+        html = md.convert('# Guide\n\n## Contents {: .no-toc }\n\n[TOC]\n\n## Install\n')
+        self.assertNotIn('<li><a href="#contents">', html)
+        self.assertIn('<li><a href="#install">', html)

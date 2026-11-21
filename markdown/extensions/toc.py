@@ -20,6 +20,7 @@ for details.
 from __future__ import annotations
 
 from . import Extension
+from ..postprocessors import Postprocessor
 from ..treeprocessors import Treeprocessor
 from ..util import parseBoolValue, AMP_SUBSTITUTE, deprecated, HTML_PLACEHOLDER_RE, AtomicString
 from ..treeprocessors import UnescapeTreeprocessor
@@ -438,6 +439,15 @@ class TocTreeprocessor(Treeprocessor):
         self.md.toc = toc
 
 
+class NoTocPostprocessor(Postprocessor):
+    """ Remove entries for headings marked `no-toc` from the rendered table of contents. """
+
+    def run(self, text: str) -> str:
+        for hid in re.findall(r'<h[1-6][^>]*class="[^"]*no-toc[^"]*"[^>]*id="([^"]+)"', text):
+            text = re.sub(r'<li><a href="#%s">.*?</a>(</li>)?\n?' % re.escape(hid), '', text)
+        return text
+
+
 class TocExtension(Extension):
     """ Table of Contents Extension to Python-Markdown. """
 
@@ -509,6 +519,7 @@ class TocExtension(Extension):
         self.reset()
         tocext = self.TreeProcessorClass(md, self.getConfigs())
         md.treeprocessors.register(tocext, 'toc', 5)
+        md.postprocessors.register(NoTocPostprocessor(md), 'no_toc', 5)
 
     def reset(self) -> None:
         self.md.toc = ''
