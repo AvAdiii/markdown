@@ -1,0 +1,152 @@
+# autose: issue in, pull request out. Architecture: architecture/ in the submission repository.
+# Trigger: label an issue `autose`, or comment `/autose` on an issue (full run) or on an autose PR
+# (re-review). Only users with write access can start it (gate.py). Nothing here ever merges.
+name: autose
+
+on:
+  issues:
+    types: [labeled]
+  issue_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: Issue number
+        required: true
+        type: string
+      start_stage:
+        description: requirements = full run; review = review an open PR only
+        type: choice
+        options: [requirements, review]
+        default: requirements
+      pr:
+        description: PR number (review runs only)
+        type: string
+        default: ''
+      reviewer_variant:
+        description: isolated (default) or shared (experiment E1)
+        type: choice
+        options: [isolated, shared]
+        default: isolated
+      reviewer_model:
+        description: Override the reviewer model (experiment E2)
+        type: string
+        default: ''
+      rework:
+        description: Allow rework rounds after a review that requests changes
+        type: boolean
+        default: true
+      requested_by:
+        description: Set by the gate when it re-dispatches a PR comment
+        type: string
+        default: ''
+
+permissions: {}
+
+# One run per issue at a time; later triggers queue (ADR-010). Plain comments get a throw-away group
+# so they can never replace a queued /autose run.
+concurrency:
+  group: >-
+    ${{ (github.event_name == 'issue_comment' && !startsWith(github.event.comment.body, '/autose'))
+        && format('autose-noop-{0}', github.run_id)
+        || format('autose-{0}', github.event.issue.number || inputs.issue) }}
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' && github.event.label.name == 'autose') ||
+      (github.event_name == 'issue_comment' && startsWith(github.event.comment.body, '/autose') &&
+       github.event.comment.user.type != 'Bot')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write          # eyes reaction + sticky status comment
+      pull-requests: read    # resolve PR -> issue
+      actions: write         # re-dispatch a PR-comment run under the issue's concurrency group
+    outputs:
+      proceed: ${{ steps.gate.outputs.proceed }}
+      issue: ${{ steps.gate.outputs.issue }}
+      start_stage: ${{ steps.gate.outputs.start_stage }}
+      pr: ${{ steps.gate.outputs.pr }}
+      reviewer_variant: ${{ steps.gate.outputs.reviewer_variant }}
+      reviewer_model: ${{ steps.gate.outputs.reviewer_model }}
+      rework: ${{ steps.gate.outputs.rework }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/autose
+      - id: gate
+        run: python3 .github/autose/gate.py
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - if: steps.gate.outputs.proceed == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: trigger
+          path: trigger.json
+
+  round0:
+    needs: gate
+    if: needs.gate.outputs.proceed == 'true'
+    uses: ./.github/workflows/autose-round.yml
+    with:
+      round: 0
+      prev: ''
+      start_stage: ${{ needs.gate.outputs.start_stage }}
+      pr: ${{ needs.gate.outputs.pr }}
+      reviewer_variant: ${{ needs.gate.outputs.reviewer_variant }}
+      reviewer_model: ${{ needs.gate.outputs.reviewer_model }}
+      last_round: ${{ needs.gate.outputs.rework != 'true' || needs.gate.outputs.start_stage == 'review' }}
+    secrets: inherit
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+      checks: read
+      statuses: read
+
+  round1:
+    needs: [gate, round0]
+    if: >-
+      needs.round0.outputs.verdict == 'request_changes' && needs.gate.outputs.rework == 'true' &&
+      needs.gate.outputs.start_stage != 'review'
+    uses: ./.github/workflows/autose-round.yml
+    with:
+      round: 1
+      prev: r0
+      start_stage: ${{ needs.round0.outputs.route }}
+      pr: ${{ needs.round0.outputs.pr }}
+      reviewer_variant: ${{ needs.gate.outputs.reviewer_variant }}
+      reviewer_model: ${{ needs.gate.outputs.reviewer_model }}
+      last_round: false
+    secrets: inherit
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+      checks: read
+      statuses: read
+
+  round2:
+    needs: [gate, round1]
+    if: needs.round1.outputs.verdict == 'request_changes'
+    uses: ./.github/workflows/autose-round.yml
+    with:
+      round: 2
+      prev: r1
+      start_stage: ${{ needs.round1.outputs.route }}
+      pr: ${{ needs.round1.outputs.pr }}
+      reviewer_variant: ${{ needs.gate.outputs.reviewer_variant }}
+      reviewer_model: ${{ needs.gate.outputs.reviewer_model }}
+      last_round: true
+    secrets: inherit
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+      checks: read
+      statuses: read

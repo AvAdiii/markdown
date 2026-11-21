@@ -1,0 +1,236 @@
+# One review round: build (stages 1-4) -> release (stage 5) -> independent review (stage 6).
+# Called up to three times by autose.yml (ADR-002). Each job has only the rights it needs (ADR-005).
+name: autose-round
+
+on:
+  workflow_call:
+    inputs:
+      round: {type: number, required: true}
+      prev: {type: string, default: ''}            # artifact prefix of the previous round, e.g. r0
+      start_stage: {type: string, required: true}  # requirements | design | implementation | testing | review
+      pr: {type: string, default: ''}
+      reviewer_variant: {type: string, default: isolated}
+      reviewer_model: {type: string, default: ''}
+      last_round: {type: boolean, default: false}
+    outputs:
+      verdict:
+        value: ${{ jobs.review.outputs.verdict }}
+      route:
+        value: ${{ jobs.review.outputs.route }}
+      pr:
+        value: ${{ jobs.review.outputs.pr }}
+
+permissions: {}
+
+jobs:
+  build:
+    if: inputs.start_stage != 'review'
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    permissions:
+      contents: read     # no push rights in the job that runs the builder agents
+      issues: write      # sticky status comment and clarification questions (orchestrator only)
+    outputs:
+      ready: ${{ steps.orch.outputs.ready }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: ws
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Install test dependencies, Claude Code, harness
+        run: |
+          python -m pip install -q -e ws coverage pyyaml flake8
+          npm install -g --silent "@anthropic-ai/claude-code@$(jq -r .claude_code_version ws/.github/autose/config.json)"
+          claude --version
+          cp -r ws/.github/autose "$RUNNER_TEMP/harness"
+          mkdir -p "$RUNNER_TEMP/autose/out"
+      - uses: actions/download-artifact@v8
+        with:
+          name: trigger
+          path: ${{ runner.temp }}/trigger
+      - if: inputs.prev != ''
+        uses: actions/download-artifact@v8
+        with:
+          pattern: ${{ inputs.prev }}-*
+          path: ${{ runner.temp }}/prev
+      - name: Resume a re-run attempt from its finished stages (ADR-004)
+        if: github.run_attempt > 1
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          name: r${{ inputs.round }}-build
+          path: ${{ runner.temp }}/autose/out
+      - id: orch
+        name: Stages 1-4 (orchestrator)
+        run: python "$RUNNER_TEMP/harness/orchestrator.py"
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          AUTOSE_GH_TOKEN: ${{ github.token }}
+          AUTOSE_TRIGGER: ${{ runner.temp }}/trigger/trigger.json
+          AUTOSE_ROUND: ${{ inputs.round }}
+          AUTOSE_START: ${{ inputs.start_stage }}
+          AUTOSE_PREV: ${{ inputs.prev != '' && format('{0}/prev', runner.temp) || '' }}
+          AUTOSE_OUT: ${{ runner.temp }}/autose/out
+          AUTOSE_WS: ${{ github.workspace }}/ws
+          AUTOSE_PYTHON: python
+      - name: Upload build bundle (always, so a re-run can resume)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: r${{ inputs.round }}-build
+          path: ${{ runner.temp }}/autose/out
+          overwrite: true
+          include-hidden-files: true
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with: {name: 'r${{ inputs.round }}-1-spec', path: '${{ runner.temp }}/autose/out/spec.md', overwrite: true, if-no-files-found: ignore}
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with: {name: 'r${{ inputs.round }}-2-design', path: '${{ runner.temp }}/autose/out/design.md', overwrite: true, if-no-files-found: ignore}
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with: {name: 'r${{ inputs.round }}-3-diff', path: '${{ runner.temp }}/autose/out/diff.patch', overwrite: true, if-no-files-found: ignore}
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with: {name: 'r${{ inputs.round }}-4-test_report', path: '${{ runner.temp }}/autose/out/test_report.md', overwrite: true, if-no-files-found: ignore}
+
+  release:
+    needs: build
+    if: inputs.start_stage != 'review' && needs.build.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read     # pushes use the App token below, not GITHUB_TOKEN
+      checks: read
+      statuses: read
+      issues: write
+    outputs:
+      pr: ${{ steps.rel.outputs.pr }}
+      ci_ok: ${{ steps.rel.outputs.ci_ok }}
+    steps:
+      - id: app
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.AUTOSE_APP_ID }}
+          private-key: ${{ secrets.AUTOSE_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+      - uses: actions/checkout@v7
+        with:
+          path: ws
+          fetch-depth: 0
+          token: ${{ steps.app.outputs.token }}
+      - run: cp -r ws/.github/autose "$RUNNER_TEMP/harness"
+      - uses: actions/download-artifact@v8
+        with:
+          name: trigger
+          path: ${{ runner.temp }}/trigger
+      - uses: actions/download-artifact@v8
+        with:
+          name: r${{ inputs.round }}-build
+          path: ${{ runner.temp }}/build
+      - id: bot
+        name: Bot identity for the commit
+        run: |
+          id=$(gh api "/users/${SLUG}%5Bbot%5D" --jq .id)
+          echo "email=${id}+${SLUG}[bot]@users.noreply.github.com" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          SLUG: ${{ steps.app.outputs.app-slug }}
+      - id: rel
+        name: Stage 5 (release, no model)
+        run: python "$RUNNER_TEMP/harness/release.py"
+        env:
+          AUTOSE_APP_TOKEN: ${{ steps.app.outputs.token }}
+          AUTOSE_GH_TOKEN: ${{ github.token }}
+          AUTOSE_READ_TOKEN: ${{ github.token }}
+          AUTOSE_BOT: ${{ steps.app.outputs.app-slug }}[bot]
+          AUTOSE_BOT_EMAIL: ${{ steps.bot.outputs.email }}
+          AUTOSE_TRIGGER: ${{ runner.temp }}/trigger/trigger.json
+          AUTOSE_BUILD: ${{ runner.temp }}/build
+          AUTOSE_ROUND: ${{ inputs.round }}
+          AUTOSE_WS: ${{ github.workspace }}/ws
+          AUTOSE_OUT: ${{ runner.temp }}/release
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: r${{ inputs.round }}-5-release
+          path: ${{ runner.temp }}/release
+          overwrite: true
+          if-no-files-found: ignore
+
+  review:
+    needs: [build, release]
+    if: >-
+      always() && (inputs.start_stage == 'review' || needs.release.outputs.ci_ok == 'true')
+    runs-on: ubuntu-latest       # fresh VM: nothing from the build job exists here (ADR-008)
+    timeout-minutes: 30
+    permissions:
+      contents: read             # cannot push
+      pull-requests: write       # post_review only, after the reviewer process has exited
+      issues: write              # sticky status comment
+    outputs:
+      verdict: ${{ steps.review.outputs.verdict }}
+      route: ${{ steps.review.outputs.route }}
+      pr: ${{ steps.review.outputs.pr }}
+    env:
+      PR: ${{ inputs.start_stage == 'review' && inputs.pr || needs.release.outputs.pr }}
+    steps:
+      - name: Harness from main (never from the PR under review)
+        uses: actions/checkout@v7
+        with:
+          path: harness-src
+          sparse-checkout: .github/autose
+          persist-credentials: false
+      - name: Repository at the PR head
+        uses: actions/checkout@v7
+        with:
+          ref: refs/pull/${{ env.PR }}/head
+          path: ws
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Install the PR's code, test dependencies, Claude Code
+        run: |
+          python -m pip install -q -e ws coverage pyyaml flake8
+          npm install -g --silent "@anthropic-ai/claude-code@$(jq -r .claude_code_version harness-src/.github/autose/config.json)"
+          cp -r harness-src/.github/autose "$RUNNER_TEMP/harness"
+          git -C ws fetch -q origin main:refs/remotes/origin/main
+      - uses: actions/download-artifact@v8
+        with:
+          name: trigger
+          path: ${{ runner.temp }}/trigger
+      - name: Author context (experiment E1 'shared' variant only)
+        if: inputs.reviewer_variant == 'shared' && inputs.start_stage != 'review'
+        uses: actions/download-artifact@v8
+        with:
+          name: r${{ inputs.round }}-build
+          path: ${{ runner.temp }}/shared
+      - id: review
+        name: Stage 6 (independent reviewer)
+        run: python "$RUNNER_TEMP/harness/review.py"
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          AUTOSE_GH_TOKEN: ${{ github.token }}
+          AUTOSE_TRIGGER: ${{ runner.temp }}/trigger/trigger.json
+          AUTOSE_WS: ${{ github.workspace }}/ws
+          AUTOSE_PR: ${{ env.PR }}
+          AUTOSE_ROUND: ${{ inputs.round }}
+          AUTOSE_VARIANT: ${{ inputs.reviewer_variant }}
+          AUTOSE_REVIEWER_MODEL: ${{ inputs.reviewer_model }}
+          AUTOSE_SHARED_DIR: ${{ runner.temp }}/shared
+          AUTOSE_OUT: ${{ runner.temp }}/review
+          AUTOSE_LAST_ROUND: ${{ inputs.last_round }}
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: r${{ inputs.round }}-6-review
+          path: ${{ runner.temp }}/review
+          overwrite: true
+          if-no-files-found: ignore

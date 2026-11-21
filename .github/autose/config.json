@@ -1,0 +1,36 @@
+{
+  "claude_code_version": "2.1.323",
+  "models": {
+    "analyst": "claude-sonnet-5-5",
+    "architect": "claude-sonnet-5-5",
+    "developer": "claude-sonnet-5-5",
+    "tester": "claude-sonnet-5-5",
+    "judge": "claude-haiku-5-5",
+    "reviewer": "claude-opus-5-5"
+  },
+  "max_turns": {
+    "analyst": 40,
+    "architect": 40,
+    "developer": 60,
+    "tester": 50,
+    "judge": 3,
+    "reviewer": 50
+  },
+  "agent_timeout_s": 1200,
+  "budgets": {
+    "spec_retries": 1,
+    "design_retries": 1,
+    "impl_attempts": 3,
+    "tester_attempts": 2,
+    "design_revisits": 1,
+    "test_disputes": 1,
+    "reviewer_evidence_retries": 1,
+    "provider_retries": 1
+  },
+  "ci_wait_s": 900,
+  "branch_prefix": "autose/issue-",
+  "label": "autose",
+  "developer_write_globs": ["markdown/**", "docs/**", "pyproject.toml", "README.md"],
+  "tester_write_globs": ["tests/**"],
+  "test_runner_start": "tests"
+}
