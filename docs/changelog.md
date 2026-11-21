@@ -22,6 +22,9 @@ See the [Contributing Guide](contributing.md) for details.
   share the same text.
 * Ignore glossary abbreviations with empty definitions after inline elements,
   consistently with abbreviations before inline elements.
+* Fix a `TypeError` in the `fenced_code` extension when a fenced block has
+  `linenums`, `guess_lang` or `noclasses` attributes and `codehilite` is not
+  enabled.
 * Strip complete HTML tags with quoted `>` characters from `toc` labels and
   generated heading IDs.
 * Fix quadratic-time regex backtracking in `attr_list` when a block ends with an
