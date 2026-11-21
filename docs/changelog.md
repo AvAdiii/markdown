@@ -14,6 +14,11 @@ See the [Contributing Guide](contributing.md) for details.
 
 ## [Unreleased]
 
+### Added
+
+* Add the `external_links` extension, which adds `target="_blank"` and
+  `rel="noopener noreferrer"` to external links.
+
 ### Fixed
 
 * Support automatic links with URL schemes other than HTTP and FTP, such as

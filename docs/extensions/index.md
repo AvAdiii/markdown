@@ -50,6 +50,7 @@ Extension                          | Entry Point    | Dot Notation
 &nbsp; &nbsp; [Tables]             | `tables`       | `markdown.extensions.tables`
 [Admonition]                       | `admonition`   | `markdown.extensions.admonition`
 [CodeHilite]                       | `codehilite`   | `markdown.extensions.codehilite`
+[External Links]                   | `external_links` | `markdown.extensions.external_links`
 [Legacy Attributes]                | `legacy_attrs`  | `markdown.extensions.legacy_attrs`
 [Legacy Emphasis]                  | `legacy_em`    | `markdown.extensions.legacy_em`
 [Meta-Data]                        | `meta`         | `markdown.extensions.meta`
@@ -68,6 +69,7 @@ Extension                          | Entry Point    | Dot Notation
 [Tables]: tables.md
 [Admonition]: admonition.md
 [CodeHilite]: code_hilite.md
+[External Links]: external_links.md
 [Legacy Attributes]: legacy_attrs.md
 [Legacy Emphasis]: legacy_em.md
 [Meta-Data]: meta_data.md
