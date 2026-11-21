@@ -301,3 +301,18 @@ class TestAttrListValuelessAttributes(TestCase):
             'Key without *value*{ foo= }',
             '<p>Key without <em foo>value</em></p>'
         )
+
+
+class TestEmptyAttrList(TestCase):
+
+    def test_empty_list_has_no_colon_attribute(self):
+        html = self.md_convert('# Title {: }')
+        self.assertNotIn(' :>', html)
+
+    def test_empty_list_block_has_no_colon_attribute(self):
+        html = self.md_convert('Some paragraph\n{:}')
+        self.assertNotIn(' :>', html)
+
+    def md_convert(self, src):
+        import markdown
+        return markdown.markdown(src, extensions=['attr_list'])

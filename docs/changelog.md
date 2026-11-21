@@ -16,6 +16,8 @@ See the [Contributing Guide](contributing.md) for details.
 
 ### Fixed
 
+* Do not create a `:` attribute from an empty attribute list (`{: }`).
+
 * Support automatic links with URL schemes other than HTTP and FTP, such as
   `<ssh://example.org>` (#1244).
 * Fix quadratic-time id generation in the `toc` extension when many headers
