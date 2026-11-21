@@ -117,6 +117,12 @@ def main() -> int:
     variant = os.environ.get("AUTOSE_VARIANT", "isolated") or "isolated"
     model = os.environ.get("AUTOSE_REVIEWER_MODEL") or CONFIG["models"]["reviewer"]
     last = os.environ.get("AUTOSE_LAST_ROUND", "false") == "true"
+    # Only the pipeline's own PRs (branch autose/issue-N) report into the issue's status comment; a review-only
+    # run on any other PR (the seeded experiment PRs) must not overwrite the status of the issue's own run.
+    head_ref = (gh_api(f"repos/{repo()}/pulls/{pr}").get("head") or {}).get("ref", "")
+    global update_status
+    if not head_ref.startswith(CONFIG["branch_prefix"]):
+        update_status = lambda *a, **k: None  # noqa: E731
     base = sh(["git", "merge-base", "origin/main", "HEAD"], cwd=ws).stdout.strip()
     diff = sh(["git", "diff", f"{base}...HEAD"], cwd=ws).stdout
     (out / "reviewed.diff").write_text(diff)
