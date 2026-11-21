@@ -183,9 +183,20 @@ class Pipeline:
         raise Stop(stage, "specification check failed after retry: " + "; ".join(res["reasons"][:5]))
 
     def judge(self, acs: list[dict]) -> dict:
-        prompt = "Acceptance criteria:\n" + "\n".join(f"- {a['id']}: {a['text']}" for a in acs)
-        res = self.agent("judge", "requirements", prompt, json_schema=checks.JUDGE_SCHEMA)
-        return res.get("structured") or {}
+        """Testability verdicts are sticky per AC text (ADR-011): only new or reworded ACs go to the
+        judge, so a retry cannot be failed on an AC the judge already accepted word for word."""
+        cache = self.state.setdefault("judge_cache", {})
+        fresh = [a for a in acs if a["text"] not in cache]
+        if fresh:
+            prompt = "Acceptance criteria:\n" + "\n".join(f"- {a['id']}: {a['text']}" for a in fresh)
+            res = self.agent("judge", "requirements", prompt, json_schema=checks.JUDGE_SCHEMA)
+            by_id = {c.get("id"): c for c in (res.get("structured") or {}).get("criteria", [])}
+            for a in fresh:
+                if a["id"] in by_id:
+                    cache[a["text"]] = {k: v for k, v in by_id[a["id"]].items() if k != "id"}
+        criteria = [{"id": a["id"], **cache[a["text"]], "cached": a not in fresh}
+                    for a in acs if a["text"] in cache]
+        return {"criteria": criteria, "judged_now": [a["id"] for a in fresh]}
 
     def ask_clarification(self, questions: list[dict]) -> None:
         from common import gh_api, repo
