@@ -267,11 +267,33 @@ def check_build(ws: Path, python: str) -> dict:
             break
     py_changed = [f for f in files if f.endswith(".py") and (ws / f).exists()]
     if py_changed and not reasons:
-        res = sh([python, "-m", "flake8", *py_changed], cwd=ws, check=False, timeout=300)
-        log_lines.append(f"$ flake8 {' '.join(py_changed)}\nexit {res.returncode}\n{res.stdout[-1500:]}")
-        if res.returncode != 0:
-            reasons.append(f"flake8 (the repo's CI lint) failed:\n{res.stdout[-1200:]}")
+        new_errors = new_lint_errors(ws, python, py_changed)
+        log_lines.append(f"$ flake8 (new errors only) {' '.join(py_changed)}\n" + "\n".join(new_errors[:30]))
+        if new_errors:
+            reasons.append("flake8 (the repo's CI lint) reports new errors:\n" + "\n".join(new_errors[:15]))
     return {"ok": not reasons, "reasons": reasons, "files": files, "log": "\n".join(log_lines)}
+
+
+def new_lint_errors(ws: Path, python: str, files: list[str]) -> list[str]:
+    """flake8 errors on the changed files that the base version of the same file does not have.
+    Pre-existing upstream warnings (e.g. Python 3.12 f-string tokenisation) are not the change's fault."""
+    def errs(text: str, name: str) -> list[str]:
+        res = sh([python, "-m", "flake8", f"--stdin-display-name={name}", "-"], cwd=ws, check=False, input=text,
+                 timeout=120)
+        return [l.split(":", 3)[-1].strip() for l in res.stdout.splitlines() if l.strip()]
+    out = []
+    for f in files:
+        head = (ws / f).read_text()
+        base = sh(["git", "show", f"HEAD:{f}"], cwd=ws, check=False).stdout
+        before = errs(base, f) if base else []
+        res = sh([python, "-m", "flake8", f], cwd=ws, check=False, timeout=120)
+        for line in res.stdout.splitlines():
+            msg = line.split(":", 3)[-1].strip()
+            if msg in before:
+                before.remove(msg)
+            else:
+                out.append(line)
+    return out
 
 
 # ------------------------------------------------------------------------------------------ stage 4
