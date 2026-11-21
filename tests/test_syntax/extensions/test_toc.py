@@ -1574,3 +1574,58 @@ class testStripTags(TestCase):
             strip_tags('foo &lt; &amp; &lt; bar'),
             'foo &lt; &amp; &lt; bar'
         )
+
+
+class TestTOCNoToc(TestCase):
+    maxDiff = None
+    text = '# Guide\n\n## Contents {: .no-toc }\n\n[TOC]\n\n## Install\n\n## Usage'
+
+    def convert(self, text=None):
+        md = Markdown(extensions=['toc', 'attr_list'])
+        out = md.convert(self.text if text is None else text)
+        return md, out
+
+    def _ids(self, tokens):
+        ids = []
+        for t in tokens:
+            ids.append(t['id'])
+            ids.extend(self._ids(t['children']))
+        return ids
+
+    def test_ac_fr_001_1_hrefs(self):
+        _, out = self.convert()
+        self.assertIn('href="#guide"', out)
+        self.assertIn('href="#install"', out)
+        self.assertIn('href="#usage"', out)
+        self.assertNotIn('href="#contents"', out)
+
+    def test_ac_fr_001_2_md_toc(self):
+        md, _ = self.convert()
+        self.assertNotIn('>Contents<', md.toc)
+
+    def test_ac_fr_001_3_multiple_classes(self):
+        _, out = self.convert('## Contents {: .a .no-toc }\n\n[TOC]\n\n## Install')
+        self.assertNotIn('href="#contents"', out)
+        self.assertIn('href="#install"', out)
+
+    def test_ac_fr_002_1_heading_keeps_id(self):
+        _, out = self.convert()
+        self.assertIn('<h2 class="no-toc" id="contents">Contents</h2>', out)
+
+    def test_ac_fr_002_2_unique_ids(self):
+        _, out = self.convert('## Contents {: .no-toc }\n\n## Contents {: .no-toc }')
+        self.assertEqual(
+            out,
+            '<h2 class="no-toc" id="contents">Contents</h2>\n'
+            '<h2 class="no-toc" id="contents_1">Contents</h2>'
+        )
+
+    def test_ac_fr_003_1_toc_tokens(self):
+        md, _ = self.convert()
+        self.assertEqual(len(md.toc_tokens), 1)
+        self.assertEqual(md.toc_tokens[0]['id'], 'guide')
+        self.assertEqual([c['id'] for c in md.toc_tokens[0]['children']], ['install', 'usage'])
+
+    def test_ac_fr_003_2_no_contents_token(self):
+        md, _ = self.convert()
+        self.assertNotIn('contents', self._ids(md.toc_tokens))
