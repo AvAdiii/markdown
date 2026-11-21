@@ -139,6 +139,9 @@ def main() -> int:
                         json_schema=SCHEMA, model=model, deny_paths=[str(out)], ledger=out / "usage.jsonl",
                         label=f"r{rnd}-review-{variant}")
         v = res.get("structured") or {}
+        if res.get("error_kind") == "sandbox":  # no command could run: no verdict is better than a guess
+            v = {}
+            break
         if not res["ok"] or not v:
             continue
         executed = [c for c in v.get("own_checks", []) if c.get("command") and c.get("result") in ("pass", "fail")]

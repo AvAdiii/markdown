@@ -55,6 +55,9 @@ def agent_env(role: str, ws: Path, stage_dir: Path, guard_log: Path, deny_paths:
     return env
 
 
+SANDBOX_FAILURE = "Sandbox is required but failed to initialize"
+
+
 def _classify_error(text: str) -> str:
     low = text.lower()
     return "provider" if any(k in low for k in PROVIDER_ERRORS) else "agent"
@@ -98,6 +101,7 @@ def run_agent(role: str, prompt: str, ws: Path, stage_dir: Path, transcript: Pat
         start = time.time()
         final = None
         timed_out = False
+        sandbox_broken = False
         with open(transcript, "a") as tf:
             tf.write(json.dumps({"autose": "session-start", "role": role, "model": model, "label": label,
                                  "attempt": attempt, "prompt": prompt}) + "\n")
@@ -117,6 +121,8 @@ def run_agent(role: str, prompt: str, ws: Path, stage_dir: Path, transcript: Pat
                     continue
                 if ev.get("type") == "result":
                     final = ev
+                elif SANDBOX_FAILURE in line:  # Bash ran in no sandbox at all: an infrastructure fault
+                    sandbox_broken = True
             if err.strip():
                 tf.write(json.dumps({"autose": "stderr", "text": err[-4000:]}) + "\n")
         dur = round(time.time() - start, 1)
@@ -135,6 +141,9 @@ def run_agent(role: str, prompt: str, ws: Path, stage_dir: Path, transcript: Pat
         }
         if timed_out:
             result.update(ok=False, error_kind="timeout")
+        elif sandbox_broken:
+            result.update(ok=False, error_kind="sandbox",
+                          error="the Bash sandbox (bubblewrap + socat) failed to start, so no command could run")
         elif final is None or final.get("is_error") or proc.returncode != 0:
             blob = json.dumps(final or {}) + err[-2000:]
             kind = "max_turns" if (final or {}).get("subtype") == "error_max_turns" else _classify_error(blob)

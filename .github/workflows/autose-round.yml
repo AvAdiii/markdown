@@ -41,6 +41,12 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
+      - name: Bash sandbox for the agents (bubblewrap + socat; ADR-005)
+        run: |
+          sudo apt-get install -y -qq bubblewrap socat >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq bubblewrap socat >/dev/null; }
+          # Ubuntu 24.04 blocks unprivileged user namespaces through AppArmor; bubblewrap needs them
+          sudo sysctl -qw kernel.apparmor_restrict_unprivileged_userns=0 || true
+          bwrap --ro-bind / / --dev /dev --proc /proc --unshare-all true && echo "sandbox ok"
       - name: Install test dependencies, Claude Code, harness
         run: |
           python -m pip install -q -e ws coverage pyyaml flake8
@@ -196,6 +202,12 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
+      - name: Bash sandbox for the agents (bubblewrap + socat; ADR-005)
+        run: |
+          sudo apt-get install -y -qq bubblewrap socat >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq bubblewrap socat >/dev/null; }
+          # Ubuntu 24.04 blocks unprivileged user namespaces through AppArmor; bubblewrap needs them
+          sudo sysctl -qw kernel.apparmor_restrict_unprivileged_userns=0 || true
+          bwrap --ro-bind / / --dev /dev --proc /proc --unshare-all true && echo "sandbox ok"
       - name: Install the PR's code, test dependencies, Claude Code
         run: |
           python -m pip install -q -e ws coverage pyyaml flake8
