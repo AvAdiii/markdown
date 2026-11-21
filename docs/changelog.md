@@ -16,6 +16,8 @@ See the [Contributing Guide](contributing.md) for details.
 
 ### Fixed
 
+* Fix an empty attribute list (`{:}` or `{: }`) in the `attr_list` extension
+  producing an invalid `:` attribute; it now means "no attributes" (#2).
 * Support automatic links with URL schemes other than HTTP and FTP, such as
   `<ssh://example.org>` (#1244).
 * Fix quadratic-time id generation in the `toc` extension when many headers

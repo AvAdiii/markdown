@@ -78,6 +78,43 @@ class TestAttrList(TestCase):
             '<h1 id="*Foo*"><code>*Foo*</code></h1>'
         )
 
+    def _attr(self, src, expected):
+        self.assertMarkdownRenders(src, expected, extensions=['attr_list'])
+
+    def test_ac_fr_001_1_empty_list_heading(self):
+        self._attr('# Title {: }', '<h1>Title</h1>')
+
+    def test_ac_fr_001_2_empty_list_no_space_and_many_spaces(self):
+        self._attr('# Title {:}', '<h1>Title</h1>')
+        self._attr('# Title {:   }', '<h1>Title</h1>')
+
+    def test_ac_fr_001_3_nonempty_list_heading(self):
+        self._attr('# Title {: .note }', '<h1 class="note">Title</h1>')
+
+    def test_ac_fr_002_1_empty_list_block_no_space(self):
+        self._attr('Some paragraph\n{:}', '<p>Some paragraph</p>')
+
+    def test_ac_fr_002_2_empty_list_block_space(self):
+        self._attr('Some paragraph\n{: }', '<p>Some paragraph</p>')
+
+    def test_ac_fr_002_3_nonempty_list_block(self):
+        self._attr('Some paragraph\n{: .note }', '<p class="note">Some paragraph</p>')
+
+    def test_ac_fr_003_1_empty_list_inline_space(self):
+        self._attr('*hi*{: }', '<p><em>hi</em></p>')
+
+    def test_ac_fr_003_2_empty_list_inline_no_space(self):
+        self._attr('*hi*{:}', '<p><em>hi</em></p>')
+
+    def test_ac_fr_003_3_nonempty_list_inline(self):
+        self._attr('*hi*{: .note }', '<p><em class="note">hi</em></p>')
+
+    def test_ac_fr_004_1_id_heading(self):
+        self._attr('# Title {: #id }', '<h1 id="id">Title</h1>')
+
+    def test_ac_fr_004_2_multiple_classes_heading(self):
+        self._attr('# Title {: .a .b }', '<h1 class="a b">Title</h1>')
+
     def test_unclosed_curly_with_long_run_of_spaces(self):
         """
         An unclosed attribute list followed by a long run of spaces should be
