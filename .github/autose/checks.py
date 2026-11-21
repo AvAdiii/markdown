@@ -271,7 +271,38 @@ def check_build(ws: Path, python: str) -> dict:
         log_lines.append(f"$ flake8 (new errors only) {' '.join(py_changed)}\n" + "\n".join(new_errors[:30]))
         if new_errors:
             reasons.append("flake8 (the repo's CI lint) reports new errors:\n" + "\n".join(new_errors[:15]))
+    docs_touched = [f for f in files if f.startswith("docs/") or f.endswith(".py") or f in ("mkdocs.yml", "README.md")]
+    if docs_touched and not reasons:
+        reasons += docs_checks(ws, python, log_lines)
     return {"ok": not reasons, "reasons": reasons, "files": files, "log": "\n".join(log_lines)}
+
+
+def docs_checks(ws: Path, python: str, log_lines: list[str]) -> list[str]:
+    """The repository's CI `checklinks` and `checkspelling` jobs, run locally (tox.ini): the docs site is
+    built with --strict (broken links, unresolved API references) and pyspelling checks the built HTML,
+    which includes the docstrings rendered by mkdocstrings. Run only when docs or Python files change."""
+    import shutil
+    reasons = []
+    try:
+        res = sh([python, "-m", "zensical", "build", "--strict", "--config-file", "mkdocs.yml"], cwd=ws, check=False,
+                 timeout=300)
+        out = (res.stdout + res.stderr)
+        log_lines.append(f"$ zensical build --strict\nexit {res.returncode}\n{out[-1500:]}")
+        if res.returncode != 0:
+            warn = [l.strip() for l in out.splitlines() if "Warning" in l or "Error" in l][:10]
+            reasons.append("docs build --strict (the repo's CI `checklinks`) failed:\n" + "\n".join(warn or [out[-600:]]))
+            return reasons
+        res = sh([python, "-m", "pyspelling", "-j", "4", "--config", ".pyspelling.yml"], cwd=ws, check=False,
+                 timeout=300)
+        out = res.stdout + res.stderr
+        log_lines.append(f"$ pyspelling\nexit {res.returncode}\n{out[-1500:]}")
+        if res.returncode != 0:
+            reasons.append("spelling check (the repo's CI `checkspelling`; the built HTML includes docstrings) "
+                           "failed. Reword, or use backticks for code names:\n" + out[-800:])
+    finally:
+        for d in ("site", "build/dictionary"):
+            shutil.rmtree(ws / d, ignore_errors=True)
+    return reasons
 
 
 def new_lint_errors(ws: Path, python: str, files: list[str]) -> list[str]:
