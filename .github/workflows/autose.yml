@@ -44,11 +44,15 @@ on:
 permissions: {}
 
 # One run per issue at a time; later triggers queue (ADR-010). Plain comments get a throw-away group
-# so they can never replace a queued /autose run.
+# so they can never replace a queued /autose run. A review-only run dispatched by a maintainer (the
+# experiments; the gate's re-dispatch sets requested_by) only posts a review, so it gets its own group
+# per PR, variant and model and cannot displace an issue's queued run.
 concurrency:
   group: >-
     ${{ (github.event_name == 'issue_comment' && !startsWith(github.event.comment.body, '/autose'))
         && format('autose-noop-{0}', github.run_id)
+        || (github.event_name == 'workflow_dispatch' && inputs.start_stage == 'review' && inputs.requested_by == '')
+        && format('autose-review-{0}-{1}-{2}', inputs.pr, inputs.reviewer_variant, inputs.reviewer_model)
         || format('autose-{0}', github.event.issue.number || inputs.issue) }}
   cancel-in-progress: false
 
