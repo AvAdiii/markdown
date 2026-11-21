@@ -86,6 +86,8 @@ class Pipeline:
         res = run_agent(role, prompt, self.ws, self.stage_dir(stage),
                         self.out / "transcripts" / f"{stage}-{role}-{n}.jsonl",
                         deny_paths=self.deny, ledger=self.ledger, label=f"r{self.round}-{stage}-{n}", **kw)
+        if not res["ok"] and res.get("error_kind") == "sandbox":
+            raise Stop(stage, f"{role} agent: {res['error']}", "harness-error")
         if not res["ok"] and res.get("error_kind") in ("provider", "timeout"):
             raise Stop(stage, f"{role} agent: {res.get('error_kind')}: {res.get('error', '')[:400]}",
                        "provider-unavailable" if res["error_kind"] == "provider" else "timeout")
