@@ -252,6 +252,85 @@ Some text with a [[WikiLink]]."""
             '<p><a class="wikilink" href="/bar/">foo</a></p>'
         )
 
+    def test_ac_fr_001_1_label(self):
+        self.assertEqual(
+            self.md.convert('[[Getting Started|read the guide]]'),
+            '<p><a class="wikilink" href="/Getting_Started/">read the guide</a></p>'
+        )
+
+    def test_ac_fr_001_2_label_in_text(self):
+        self.assertEqual(
+            self.md.convert('Some text with a [[WikiLink|shown]].'),
+            '<p>Some text with a <a class="wikilink" href="/WikiLink/">shown</a>.</p>'
+        )
+
+    def test_ac_fr_001_3_no_brackets_or_pipe(self):
+        out = self.md.convert('[[Getting Started|read the guide]]')
+        self.assertNotIn('[[', out)
+        self.assertNotIn('|', out)
+
+    def test_ac_fr_002_1_space_around_pipe(self):
+        self.assertEqual(
+            self.md.convert('[[Getting Started | read the guide]]'),
+            '<p><a class="wikilink" href="/Getting_Started/">read the guide</a></p>'
+        )
+
+    def test_ac_fr_002_2_extra_space_equal(self):
+        self.assertEqual(
+            self.md.convert('[[  Getting Started  |  read the guide  ]]'),
+            markdown.markdown('[[Getting Started|read the guide]]', extensions=['wikilinks'])
+        )
+
+    def test_ac_fr_003_1_base_end_class(self):
+        from markdown.extensions.wikilinks import WikiLinkExtension
+        self.assertEqual(
+            markdown.markdown(
+                '[[Getting Started|read the guide]]',
+                extensions=[WikiLinkExtension(base_url='/wiki/', end_url='.html', html_class='foo')]
+            ),
+            '<p><a class="foo" href="/wiki/Getting_Started.html">read the guide</a></p>'
+        )
+
+    def test_ac_fr_003_2_empty_class(self):
+        from markdown.extensions.wikilinks import WikiLinkExtension
+        self.assertEqual(
+            markdown.markdown(
+                '[[Getting Started|read the guide]]',
+                extensions=[WikiLinkExtension(html_class='')]
+            ),
+            '<p><a href="/Getting_Started/">read the guide</a></p>'
+        )
+
+    def test_ac_fr_003_3_build_url_args(self):
+        from markdown.extensions.wikilinks import WikiLinkExtension
+        calls = []
+
+        def my_url_builder(label, base, end):
+            calls.append((label, base, end))
+            return '/bar/'
+
+        md = markdown.Markdown(extensions=[WikiLinkExtension(build_url=my_url_builder)])
+        self.assertEqual(
+            md.convert('[[Getting Started|read the guide]]'),
+            '<p><a class="wikilink" href="/bar/">read the guide</a></p>'
+        )
+        self.assertEqual(calls, [('Getting Started', '/', '/')])
+
+    def test_ac_fr_004_1_no_pipe(self):
+        self.assertEqual(
+            self.md.convert('Some text with a [[WikiLink]].'),
+            '<p>Some text with a <a class="wikilink" href="/WikiLink/">WikiLink</a>.</p>'
+        )
+
+    def test_ac_fr_004_2_whitespace_no_pipe(self):
+        self.assertEqual(
+            self.md.convert('[[ foo bar_baz ]]'),
+            '<p><a class="wikilink" href="/foo_bar_baz/">foo bar_baz</a></p>'
+        )
+
+    def test_ac_fr_004_3_blank_removed(self):
+        self.assertEqual(self.md.convert('foo [[ ]] bar'), '<p>foo  bar</p>')
+
 
 class TestAdmonition(unittest.TestCase):
     """ Test Admonition Extension. """
