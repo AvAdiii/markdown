@@ -53,6 +53,17 @@ extensions: [wikilinks]
 [[Wiki Link]]
 ```
 
+A different link text can be given after a pipe: `[[Target|Label]]` links to
+the same URL as `[[Target]]` but shows the label. Whitespace around the pipe is
+ignored. The label accepts the same characters as the target.
+
+``` md-render
+---
+extensions: [wikilinks]
+---
+[[Wiki Link|read the guide]]
+```
+
 ## Usage
 
 See [Extensions](index.md) for general extension usage. Use `wikilinks` as the
