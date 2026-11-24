@@ -456,6 +456,31 @@ class TestFencedCode(TestCase):
         )
 
 
+class TestFencedCodeBoolOptionsWithoutCodehilite(TestCase):
+
+    def testBareBoolOption(self):
+        self.assertMarkdownRenders(
+            '``` { .python linenums }\nprint(1)\n```',
+            '<pre><code class="language-python">print(1)\n</code></pre>',
+            extensions=['fenced_code', 'attr_list']
+        )
+
+    def testExplicitBoolOptions(self):
+        for attrs in ('linenums="true"', 'guess_lang', 'noclasses', 'use_pygments="false"'):
+            self.assertMarkdownRenders(
+                '``` { .python %s }\nx\n```' % attrs,
+                '<pre><code class="language-python">x\n</code></pre>',
+                extensions=['fenced_code', 'attr_list']
+            )
+
+    def testOtherAttributesKept(self):
+        self.assertMarkdownRenders(
+            '``` { .python data-x="1" linenums }\nx\n```',
+            '<pre><code class="language-python" data-x="1">x\n</code></pre>',
+            extensions=['fenced_code', 'attr_list']
+        )
+
+
 class TestFencedCodeWithCodehilite(TestCase):
 
     def setUp(self):
