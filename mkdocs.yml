@@ -74,6 +74,7 @@ nav:
       - Extra: extensions/extra.md
       - Fenced Code Blocks: extensions/fenced_code_blocks.md
       - Footnotes: extensions/footnotes.md
+      - External Links: extensions/external_links.md
       - Legacy Attributes: extensions/legacy_attrs.md
       - Legacy Emphasis: extensions/legacy_em.md
       - Meta-Data: extensions/meta_data.md
@@ -109,6 +110,7 @@ nav:
       - <code>markdown.&#8203;extensions.&#8203;extra</code>: reference/markdown.extensions.extra.md
       - <code>markdown.&#8203;extensions.&#8203;fenced_code</code>: reference/markdown.extensions.fenced_code.md
       - <code>markdown.&#8203;extensions.&#8203;footnotes</code>: reference/markdown.extensions.footnotes.md
+      - <code>markdown.&#8203;extensions.&#8203;external_links</code>: reference/markdown.extensions.external_links.md
       - <code>markdown.&#8203;extensions.&#8203;legacy_attrs</code>: reference/markdown.extensions.legacy_attrs.md
       - <code>markdown.&#8203;extensions.&#8203;legacy_em</code>: reference/markdown.extensions.legacy_em.md
       - <code>markdown.&#8203;extensions.&#8203;md_in_html</code>: reference/markdown.extensions.md_in_html.md

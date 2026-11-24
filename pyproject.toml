@@ -87,6 +87,7 @@ smarty = 'markdown.extensions.smarty:SmartyExtension'
 tables = 'markdown.extensions.tables:TableExtension'
 toc = 'markdown.extensions.toc:TocExtension'
 wikilinks = 'markdown.extensions.wikilinks:WikiLinkExtension'
+external_links = 'markdown.extensions.external_links:ExternalLinksExtension'
 legacy_attrs = 'markdown.extensions.legacy_attrs:LegacyAttrExtension'
 legacy_em = 'markdown.extensions.legacy_em:LegacyEmExtension'
 
