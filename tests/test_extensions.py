@@ -302,3 +302,15 @@ Must not be confused with 'ndash'  (--) ... >>
 is the &sbquo;mdash&lsquo;: \u2014
 Must not be confused with &sbquo;ndash&lsquo;  (\u2013) \u2026 ]</p>"""
         self.assertEqual(self.md.convert(text), correct)
+
+
+class TestWikiLinksLabel(unittest.TestCase):
+    """ Display labels with `[[Target|Label]]`. """
+
+    def test_label_is_displayed(self):
+        html = markdown.markdown('[[Getting Started|read the guide]]', extensions=['wikilinks'])
+        self.assertIn('>read the guide</a>', html)
+
+    def test_label_with_spaces_around_pipe(self):
+        html = markdown.markdown('[[Getting Started | read the guide]]', extensions=['wikilinks'])
+        self.assertIn('>read the guide</a>', html)

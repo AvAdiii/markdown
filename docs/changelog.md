@@ -14,6 +14,10 @@ See the [Contributing Guide](contributing.md) for details.
 
 ## [Unreleased]
 
+### Added
+
+* WikiLinks: support a display label with `[[Target|Label]]`.
+
 ### Fixed
 
 * Support automatic links with URL schemes other than HTTP and FTP, such as
