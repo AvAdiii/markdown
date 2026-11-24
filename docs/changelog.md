@@ -14,6 +14,10 @@ See the [Contributing Guide](contributing.md) for details.
 
 ## [Unreleased]
 
+### Added
+
+* TOC: headings with the `no-toc` class are left out of the table of contents.
+
 ### Fixed
 
 * Support automatic links with URL schemes other than HTTP and FTP, such as
