@@ -14,6 +14,11 @@ See the [Contributing Guide](contributing.md) for details.
 
 ## [Unreleased]
 
+### Added
+
+* Headings with the `no-toc` class (set via `attr_list`) are excluded from the
+  `toc` extension's output and `md.toc_tokens`, but still receive an id (#4).
+
 ### Fixed
 
 * Support automatic links with URL schemes other than HTTP and FTP, such as
