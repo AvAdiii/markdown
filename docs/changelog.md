@@ -14,6 +14,11 @@ See the [Contributing Guide](contributing.md) for details.
 
 ## [Unreleased]
 
+### Added
+
+* New `external_links` extension: links to `http://` and `https://` URLs get
+  `target="_blank"` and `rel="noopener noreferrer"`.
+
 ### Fixed
 
 * Support automatic links with URL schemes other than HTTP and FTP, such as
