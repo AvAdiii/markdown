@@ -155,10 +155,11 @@ class FencedBlockPreprocessor(Preprocessor):
                     if self.use_attr_list and config and not config.get('use_pygments', False):
                         # Only assign key/value pairs to code element if `attr_list` extension is enabled, key/value
                         # pairs were defined on the code block, and the `use_pygments` key was not set to `True`. The
-                        # `use_pygments` key could be either set to `False` or not defined. It is omitted from output.
+                        # `use_pygments` key could be either set to `False` or not defined. It and the other highlighter-only
+                        # options (`linenums`, `guess_lang`, `noclasses`) are omitted from output.
                         kv_pairs = ''.join(
                             f' {sanitize_name(k)}="{_escape_attrib_html(v)}"'
-                            for k, v in config.items() if k != 'use_pygments'
+                            for k, v in config.items() if k not in self.bool_options
                         )
                     code = self._escape(m.group('code'))
                     code = f'<pre{id_attr}{class_attr}><code{lang_attr}{kv_pairs}>{code}</code></pre>'

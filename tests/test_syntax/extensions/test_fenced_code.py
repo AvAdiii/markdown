@@ -1079,3 +1079,66 @@ class TestFencedCodeWithCodehilite(TestCase):
                 'fenced_code'
             ]
         )
+
+
+class TestFencedCodeWithoutCodehilite(TestCase):
+
+    exts = ['fenced_code', 'attr_list']
+
+    def _convert(self, source, extensions=None):
+        return markdown.markdown(source, extensions=extensions or self.exts)
+
+    def _assert_plain_python(self, source):
+        output = self._convert(source)
+        self.assertIn('<pre><code class="language-python"', output)
+        self.assertIn('print(1)', output)
+
+    def test_ac_fr_001_1_linenums_flag(self):
+        self._assert_plain_python('``` { .python linenums }\nprint(1)\n```')
+
+    def test_ac_fr_001_2_linenums_value(self):
+        self._assert_plain_python('``` { .python linenums="true" }\nprint(1)\n```')
+
+    def test_ac_fr_001_3_guess_lang_noclasses(self):
+        for attr in (
+            'guess_lang', 'guess_lang="true"', 'guess_lang="false"',
+            'noclasses', 'noclasses="true"', 'noclasses="false"',
+        ):
+            with self.subTest(attr=attr):
+                self._assert_plain_python('``` { .python %s }\nprint(1)\n```' % attr)
+
+    def test_ac_fr_001_4_plain_python(self):
+        self.assertMarkdownRenders(
+            '``` { .python }\nprint(1)\n```',
+            '<pre><code class="language-python">print(1)\n</code></pre>',
+            extensions=self.exts
+        )
+
+    def test_ac_fr_003_1_data_attr(self):
+        self.assertMarkdownRenders(
+            '``` { .python data-x="1" }\nprint(1)\n```',
+            '<pre><code class="language-python" data-x="1">print(1)\n</code></pre>',
+            extensions=self.exts
+        )
+
+    def test_ac_fr_003_2_data_test_braces(self):
+        self.assertMarkdownRenders(
+            '``` { data-test="{}" }\n# Some python code\n```',
+            '<pre><code data-test="{}"># Some python code\n</code></pre>',
+            extensions=self.exts
+        )
+
+    def test_ac_fr_004_1_codehilite_linenums(self):
+        output = self._convert(
+            '``` { .python linenums="true" }\nprint(1)\n```',
+            ['fenced_code', 'attr_list', 'codehilite']
+        )
+        self.assertIn('codehilite', output)
+
+    def test_ac_fr_004_2_codehilite_linenums_true(self):
+        output = self._convert(
+            '``` { .python linenums=True }\n# Some python code\n```',
+            ['fenced_code', 'attr_list', 'codehilite']
+        )
+        self.assertIn('codehilite', output)
+        self.assertIn('Some python code', output)
